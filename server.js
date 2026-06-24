@@ -18,7 +18,7 @@ app.post("/produtos", (req, res) => {
         erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
       });
     }
-    const novoProduto = { id: idCounter, nome };
+    const novoProduto = { id: idCounter++, nome };
     produtos.push(novoProduto);
 
     res.status(201).json(novoProduto);
