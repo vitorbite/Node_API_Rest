@@ -36,11 +36,11 @@ app.get("/produtos", (req, res) => {
 app.get("/produtos/:id", (req, res) => {
   const id = Number(req.params.id);
 
-  if (isNaN(id)) {
+  if (!Number.isInteger(id)) {
     return res.status(400).json({ erro: "ID inválido." });
   }
 
-  const item = produtos.find((produto) => (produto.id = id));
+  const item = produtos.find((produto) => produto.id === id);
   if (!item) {
     return res.status(404).json({ erro: "Item não encontrado." });
   }
@@ -49,43 +49,44 @@ app.get("/produtos/:id", (req, res) => {
 });
 
 app.put("/produtos/:id", (req, res) => {
-    const id = req.params.id;
+  const id = Number(req.params.id);
 
-    if (isNaN(id)) {
-        return res.status(400).json({ erro: "ID inválido." });
-    }
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ erro: "ID inválido." });
+  }
 
-    const { nome } = req.body;
+  const { nome } = req.body;
 
-    if (!validarNome(nome)) {
-        return res.status(400).json({ erro: "O campo 'nome' é obrigatório e deve ser uma string válida." });
-    }
+  if (!validarNome(nome)) {
+    return res.status(400).json({ erro: "O campo 'nome' é obrigatório e deve ser uma string válida." });
+  }
 
-    const index = produtos.findIndex(produto => produto.id === id);
+  const index = produtos.findIndex(produto => produto.id === id);
     
-    if (index === -1) {
-        return res.status(404).json({ erro: "Item não encontrado." });
-    }
+  if (index === -1) {
+    return res.status(404).json({ erro: "Item não encontrado." });
+  }
 
-    produtos[index].nome = nome;
+  produtos[index].nome = nome.trim();
 
-    res.json(produtos[index]);
+  res.json(produtos[index]);
 });
 
 app.delete("/produtos/:id", (req, res) => {
-    const id = req.params.id;
+  const id = Number(req.params.id);
 
-     if (isNaN(id)) {
-        return res.status(400).json({ erro: "ID inválido." });
-    }
-    const index = produtos.findIndex(produto => produto.id = id);
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ erro: "ID inválido." });
+  }
 
-    if (index === -1) {
-        return res.status(404).json({ erro: "Item não encontrado." });
-    }
+  const index = produtos.findIndex(produto => produto.id === id);
 
-    const removido = itens.splice(index, 1)[0];
-    res.json({ mensagem: "Item removido com sucesso.", removido });
+  if (index === -1) {
+    return res.status(404).json({ erro: "Item não encontrado." });
+  }
+
+  const removido = produtos.splice(index, 1)[0];
+  res.json({ mensagem: "Item removido com sucesso.", removido });
 });
 
 app.listen(PORT, () => {
