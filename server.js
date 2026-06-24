@@ -46,9 +46,31 @@ app.get("/produtos/:id", (req, res) => {
   res.json(item);
 });
 
-app.put("/produtos", (req, res) => {});
+app.put("/produtos/:id", (req, res) => {
+    const id = req.params.id;
 
-app.delete("/produtos", (req, res) => {});
+    if (isNaN(id)) {
+        return res.status(400).json({ erro: "ID inválido." });
+    }
+
+    const { nome } = req.body;
+
+    if (!validarNome(nome)) {
+        return res.status(400).json({ erro: "O campo 'nome' é obrigatório e deve ser uma string válida." });
+    }
+
+    const index = produtos.findIndex(produto => produto.id === id);
+    
+    if (index === -1) {
+        return res.status(404).json({ erro: "Item não encontrado." });
+    }
+
+    produtos[index].nome = nome;
+
+    res.json(produtos[index]);
+});
+
+app.delete("/produtos/:id", (req, res) => {});
 
 app.listen(PORT, () => {
   console.log("Servidor iniciado na porta: " + PORT);
