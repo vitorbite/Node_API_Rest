@@ -21,8 +21,10 @@ app.post("/produtos", (req, res) => {
     const novoProduto = { id: idCounter, nome };
     produtos.push(novoProduto);
 
-    res.status(201).json(novoItem);
+    res.status(201).json(novoProduto);
+
   } catch (error) {
+    
     res.status(500).json({ erro: "Erro interno do servidor." });
   }
 });
@@ -70,7 +72,21 @@ app.put("/produtos/:id", (req, res) => {
     res.json(produtos[index]);
 });
 
-app.delete("/produtos/:id", (req, res) => {});
+app.delete("/produtos/:id", (req, res) => {
+    const id = req.params.id;
+
+     if (isNaN(id)) {
+        return res.status(400).json({ erro: "ID inválido." });
+    }
+    const index = produtos.findIndex(produto => produto.id = id);
+
+    if (index === -1) {
+        return res.status(404).json({ erro: "Item não encontrado." });
+    }
+
+    const removido = itens.splice(index, 1)[0];
+    res.json({ mensagem: "Item removido com sucesso.", removido });
+});
 
 app.listen(PORT, () => {
   console.log("Servidor iniciado na porta: " + PORT);
