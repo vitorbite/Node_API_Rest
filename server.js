@@ -1,16 +1,22 @@
 const express = require("express");
+const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3001;
 app.use(express.json());
 const connection = require("./sqlConnection");
 
+app.use(express.urlencoded({ extended: true }));
+
 function validarNome(nome) {
   return typeof nome === "string" && nome.trim().length > 0;
 }
 
-app.post("/produtos", (req, res) => {
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'form.html'));
+});
 
-    const { nome } = req.body;
+app.post("/produtos", (req, res) => {
+  const {nome} = req.body;
 
   if (!validarNome(nome)) {
     return res.status(400).json({

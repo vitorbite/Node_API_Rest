@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      form {
+        font-family: Arial, Helvetica, sans-serif;
+        display: flex;
+        flex-direction: column;
+      }
+      button {
+        margin: 25px;
+        padding: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <form action="/submit" method="post">
+      <h1>Formulário de Produtos</h1>
+        <label for="nome">nome:</label>
+        <input type="text" id="nome" name="nome" placeholder="nome do produto" />
+      <button type="submit">Enviar</button>
+    </form>
+  </body>
+</html>
