@@ -8,15 +8,36 @@ const connection = require("./sqlConnection");
 app.use(express.urlencoded({ extended: true }));
 
 function validarNome(nome) {
-  return typeof nome === "string" && nome.trim().length > 0;
+  return nome.trim().length > 0;
 }
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'form.html'));
+function toSafeLowerCase(value) {
+  try {
+    if (typeof value !== "string") {
+      throw new TypeError("Input must be a string.");
+    }
+
+    value = value.toLowerCase();
+    return value;
+  } catch (err) {
+    return null;
+  }
+}
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "form.html"));
 });
 
 app.post("/produtos", (req, res) => {
-  const {nome} = req.body;
+  let { nome, desc } = req.body;
+
+  if (!toSafeLowerCase(nome) || !toSafeLowerCase(desc)) {
+    return res.status(400).json({
+      erro: "O campo 'nome' e 'descrição' devem ser strings válidas.",
+    });
+  }
+  nome = toSafeLowerCase(nome);
+  desc = toSafeLowerCase(desc);
 
   if (!validarNome(nome)) {
     return res.status(400).json({
@@ -24,14 +45,20 @@ app.post("/produtos", (req, res) => {
     });
   }
 
-  const sql = "INSERT INTO produto (nome) VALUES (?);";
-  connection.query(sql, [nome.trim()], (error, result) => {
+  const sql = "INSERT INTO produto (nome, descricao) VALUES (?, ?);";
+  connection.query(sql, [nome.trim(), desc.trim()], (error, result) => {
     if (error) {
       console.error("Erro ao inserir produto:", error);
-      return res.status(500).json({ erro: "Erro ao inserir no banco de dados." });
+      return res
+        .status(500)
+        .json({ erro: "Erro ao inserir no banco de dados." });
     }
 
-    const novoProduto = { id: result.insertId, nome: nome.trim() };
+    const novoProduto = {
+      id: result.insertId,
+      nome: nome.trim(),
+      descricao: desc.trim(),
+    };
     res.status(201).json(novoProduto);
   });
 });
@@ -79,7 +106,11 @@ app.put("/produtos/:id", (req, res) => {
   const { nome } = req.body;
 
   if (!validarNome(nome)) {
-    return res.status(400).json({ erro: "O campo 'nome' é obrigatório e deve ser uma string válida." });
+    return res
+      .status(400)
+      .json({
+        erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
+      });
   }
 
   const sql = "UPDATE produto SET nome = ? WHERE id = ?";
@@ -122,7 +153,6 @@ app.delete("/produtos/:id", (req, res) => {
 app.listen(PORT, () => {
   console.log("Servidor iniciado na porta: " + PORT);
 });
-
 
 process.on("SIGINT", () => {
   connection.end((err) => {
