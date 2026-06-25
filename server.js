@@ -1,36 +1,44 @@
 const express = require("express");
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.use(express.json());
-const produtos = [];
-let idCounter = 1;
+const connection = require("./sqlConnection");
 
 function validarNome(nome) {
   return typeof nome === "string" && nome.trim().length > 0;
 }
 
 app.post("/produtos", (req, res) => {
-  try {
+
     const { nome } = req.body;
 
-    if (!validarNome(nome)) {
-      return res.status(400).json({
-        erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
-      });
-    }
-    const novoProduto = { id: idCounter++, nome };
-    produtos.push(novoProduto);
-
-    res.status(201).json(novoProduto);
-
-  } catch (error) {
-    
-    res.status(500).json({ erro: "Erro interno do servidor." });
+  if (!validarNome(nome)) {
+    return res.status(400).json({
+      erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
+    });
   }
+
+  const sql = "INSERT INTO produto (nome) VALUES (?);";
+  connection.query(sql, [nome.trim()], (error, result) => {
+    if (error) {
+      console.error("Erro ao inserir produto:", error);
+      return res.status(500).json({ erro: "Erro ao inserir no banco de dados." });
+    }
+
+    const novoProduto = { id: result.insertId, nome: nome.trim() };
+    res.status(201).json(novoProduto);
+  });
 });
 
 app.get("/produtos", (req, res) => {
-  res.json(produtos);
+  const sql = "SELECT * FROM produto";
+  connection.query(sql, (error, results) => {
+    if (error) {
+      console.error("Erro ao buscar produtos:", error);
+      return res.status(500).json({ erro: "Erro ao buscar produtos." });
+    }
+    res.json(results);
+  });
 });
 
 app.get("/produtos/:id", (req, res) => {
@@ -40,12 +48,19 @@ app.get("/produtos/:id", (req, res) => {
     return res.status(400).json({ erro: "ID inválido." });
   }
 
-  const item = produtos.find((produto) => produto.id === id);
-  if (!item) {
-    return res.status(404).json({ erro: "Item não encontrado." });
-  }
+  const sql = "SELECT * FROM produto WHERE id = ?";
+  connection.query(sql, [id], (error, results) => {
+    if (error) {
+      console.error("Erro ao buscar produto:", error);
+      return res.status(500).json({ erro: "Erro ao buscar o produto." });
+    }
 
-  res.json(item);
+    if (results.length === 0) {
+      return res.status(404).json({ erro: "Item não encontrado." });
+    }
+
+    res.json(results[0]);
+  });
 });
 
 app.put("/produtos/:id", (req, res) => {
@@ -61,15 +76,19 @@ app.put("/produtos/:id", (req, res) => {
     return res.status(400).json({ erro: "O campo 'nome' é obrigatório e deve ser uma string válida." });
   }
 
-  const index = produtos.findIndex(produto => produto.id === id);
-    
-  if (index === -1) {
-    return res.status(404).json({ erro: "Item não encontrado." });
-  }
+  const sql = "UPDATE produto SET nome = ? WHERE id = ?";
+  connection.query(sql, [nome.trim(), id], (error, result) => {
+    if (error) {
+      console.error("Erro ao atualizar produto:", error);
+      return res.status(500).json({ erro: "Erro ao atualizar o produto." });
+    }
 
-  produtos[index].nome = nome.trim();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ erro: "Item não encontrado." });
+    }
 
-  res.json(produtos[index]);
+    res.json({ id, nome: nome.trim() });
+  });
 });
 
 app.delete("/produtos/:id", (req, res) => {
@@ -79,16 +98,33 @@ app.delete("/produtos/:id", (req, res) => {
     return res.status(400).json({ erro: "ID inválido." });
   }
 
-  const index = produtos.findIndex(produto => produto.id === id);
+  const sql = "DELETE FROM produto WHERE id = ?";
+  connection.query(sql, [id], (error, result) => {
+    if (error) {
+      console.error("Erro ao remover produto:", error);
+      return res.status(500).json({ erro: "Erro ao remover o produto." });
+    }
 
-  if (index === -1) {
-    return res.status(404).json({ erro: "Item não encontrado." });
-  }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ erro: "Item não encontrado." });
+    }
 
-  const removido = produtos.splice(index, 1)[0];
-  res.json({ mensagem: "Item removido com sucesso.", removido });
+    res.json({ mensagem: "Item removido com sucesso.", id });
+  });
 });
 
 app.listen(PORT, () => {
   console.log("Servidor iniciado na porta: " + PORT);
+});
+
+
+process.on("SIGINT", () => {
+  connection.end((err) => {
+    if (err) {
+      console.error("Erro ao fechar conexão MySQL:", err);
+      process.exit(1);
+    }
+    console.log("Conexão MySQL finalizada.");
+    process.exit(0);
+  });
 });
