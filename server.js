@@ -29,15 +29,15 @@ app.get("/", (req, res) => {
 });
 
 app.post("/produtos", (req, res) => {
-  let { nome, desc } = req.body;
+  let { nome, descricao } = req.body;
 
-  if (!toSafeLowerCase(nome) || !toSafeLowerCase(desc)) {
+  if (!toSafeLowerCase(nome) || !toSafeLowerCase(descricao)) {
     return res.status(400).json({
       erro: "O campo 'nome' e 'descrição' devem ser strings válidas.",
     });
   }
   nome = toSafeLowerCase(nome);
-  desc = toSafeLowerCase(desc);
+  descricao = toSafeLowerCase(descricao);
 
   if (!validarNome(nome)) {
     return res.status(400).json({
@@ -46,7 +46,7 @@ app.post("/produtos", (req, res) => {
   }
 
   const sql = "INSERT INTO produto (nome, descricao) VALUES (?, ?);";
-  connection.query(sql, [nome.trim(), desc.trim()], (error, result) => {
+  connection.query(sql, [nome.trim(), descricao.trim()], (error, result) => {
     if (error) {
       console.error("Erro ao inserir produto:", error);
       return res
@@ -57,7 +57,7 @@ app.post("/produtos", (req, res) => {
     const novoProduto = {
       id: result.insertId,
       nome: nome.trim(),
-      descricao: desc.trim(),
+      descricao: descricao.trim(),
     };
     res.status(201).json(novoProduto);
   });
