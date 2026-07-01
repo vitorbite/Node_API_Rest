@@ -2,10 +2,25 @@ const express = require("express");
 const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3001;
-app.use(express.json());
 const connection = require("./sqlConnection");
+const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
+const { body, validationResult } = require("express-validator");
 
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({limit: '10kb'}));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(helmet());
+
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Limita cada IP a 100 requisições por 'window'
+  message: {
+    erro: "Muitas requisições vindas deste IP, tente novamente mais tarde.",
+  },
+});
+
+app.use(limiter);
 
 function validarNome(nome) {
   return nome.trim().length > 0;
@@ -28,40 +43,51 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "form.html"));
 });
 
-app.post("/produtos", (req, res) => {
-  let { nome, descricao } = req.body;
+app.post(
+  "/produtos",
+  [
+    body("nome").trim().isLength({ min: 1, max: 255 }).escape(),
+    body("descricao").trim().isLength({ max: 1000 }).escape(),
+  ],
+  (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ erros: errors.array() });
+    }
+    let { nome, descricao } = req.body;
 
-  if (!toSafeLowerCase(nome) || !toSafeLowerCase(descricao)) {
-    return res.status(400).json({
-      erro: "O campo 'nome' e 'descrição' devem ser strings válidas.",
-    });
-  }
-  nome = toSafeLowerCase(nome);
-  descricao = toSafeLowerCase(descricao);
+    if (!toSafeLowerCase(nome) || !toSafeLowerCase(descricao)) {
+      return res.status(400).json({
+        erro: "O campo 'nome' e 'descrição' devem ser strings válidas.",
+      });
+    }
+    nome = toSafeLowerCase(nome);
+    descricao = toSafeLowerCase(descricao);
 
-  if (!validarNome(nome)) {
-    return res.status(400).json({
-      erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
-    });
-  }
-
-  const sql = "INSERT INTO produto (nome, descricao) VALUES (?, ?);";
-  connection.query(sql, [nome.trim(), descricao.trim()], (error, result) => {
-    if (error) {
-      console.error("Erro ao inserir produto:", error);
-      return res
-        .status(500)
-        .json({ erro: "Erro ao inserir no banco de dados." });
+    if (!validarNome(nome)) {
+      return res.status(400).json({
+        erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
+      });
     }
 
-    const novoProduto = {
-      id: result.insertId,
-      nome: nome.trim(),
-      descricao: descricao.trim(),
-    };
-    res.status(201).json(novoProduto);
-  });
-});
+    const sql = "INSERT INTO produto (nome, descricao) VALUES (?, ?);";
+    connection.query(sql, [nome.trim(), descricao.trim()], (error, result) => {
+      if (error) {
+        console.error("Erro ao inserir produto:", error);
+        return res
+          .status(500)
+          .json({ erro: "Erro ao inserir no banco de dados." });
+      }
+
+      const novoProduto = {
+        id: result.insertId,
+        nome: nome.trim(),
+        descricao: descricao.trim(),
+      };
+      res.status(201).json(novoProduto);
+    });
+  },
+);
 
 app.get("/produtos", (req, res) => {
   const sql = "SELECT * FROM produto";
@@ -106,11 +132,9 @@ app.put("/produtos/:id", (req, res) => {
   const { nome } = req.body;
 
   if (!validarNome(nome)) {
-    return res
-      .status(400)
-      .json({
-        erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
-      });
+    return res.status(400).json({
+      erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
+    });
   }
 
   const sql = "UPDATE produto SET nome = ? WHERE id = ?";
