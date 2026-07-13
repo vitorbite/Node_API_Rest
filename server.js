@@ -5,12 +5,11 @@ const PORT = process.env.PORT || 3001;
 const connection = require("./sqlConnection");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
-const { body, validationResult } = require("express-validator");
+const { body, param, validationResult } = require("express-validator");
 
-app.use(express.json({limit: '10kb'}));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(helmet());
-
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
@@ -22,22 +21,13 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-function validarNome(nome) {
-  return nome.trim().length > 0;
-}
-
-function toSafeLowerCase(value) {
-  try {
-    if (typeof value !== "string") {
-      throw new TypeError("Input must be a string.");
-    }
-
-    value = value.toLowerCase();
-    return value;
-  } catch (err) {
-    return null;
+const verificarErrosValidacao = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ erros: errors.array() });
   }
-}
+  next();
+};
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "form.html"));
@@ -49,26 +39,9 @@ app.post(
     body("nome").trim().isLength({ min: 1, max: 255 }).escape(),
     body("descricao").trim().isLength({ max: 1000 }).escape(),
   ],
+  verificarErrosValidacao,
   (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ erros: errors.array() });
-    }
-    let { nome, descricao } = req.body;
-
-    if (!toSafeLowerCase(nome) || !toSafeLowerCase(descricao)) {
-      return res.status(400).json({
-        erro: "O campo 'nome' e 'descrição' devem ser strings válidas.",
-      });
-    }
-    nome = toSafeLowerCase(nome);
-    descricao = toSafeLowerCase(descricao);
-
-    if (!validarNome(nome)) {
-      return res.status(400).json({
-        erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
-      });
-    }
+    const { nome, descricao } = req.body;
 
     const sql = "INSERT INTO produto (nome, descricao) VALUES (?, ?);";
     connection.query(sql, [nome.trim(), descricao.trim()], (error, result) => {
@@ -81,8 +54,8 @@ app.post(
 
       const novoProduto = {
         id: result.insertId,
-        nome: nome.trim(),
-        descricao: descricao.trim(),
+        nome,
+        descricao,
       };
       res.status(201).json(novoProduto);
     });
@@ -122,35 +95,33 @@ app.get("/produtos/:id", (req, res) => {
   });
 });
 
-app.put("/produtos/:id", (req, res) => {
-  const id = Number(req.params.id);
+app.put(
+  "/produtos/:id",
+  [
+    param("id").isInt().toInt(),
+    body("nome").trim().isLength({ min: 1, max: 255 }).toLowerCase().escape(),
+    body("descricao").trim().isLength({ max: 1000 }).toLowerCase().escape(),
+  ],
+  verificarErrosValidacao,
+  (req, res) => {
+    const { id } = req.params;
+    const { nome, descricao } = req.body;
 
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({ erro: "ID inválido." });
-  }
+    const sql = "UPDATE produto SET nome = ?, descricao = ? WHERE id = ?";
+    connection.query(sql, [nome, descricao, id], (error, result) => {
+      if (error) {
+        console.error("Erro ao atualizar produto:", error);
+        return res.status(500).json({ erro: "Erro ao atualizar o produto." });
+      }
 
-  const { nome } = req.body;
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ erro: "Item não encontrado." });
+      }
 
-  if (!validarNome(nome)) {
-    return res.status(400).json({
-      erro: "O campo 'nome' é obrigatório e deve ser uma string válida.",
+      res.json({ id, nome, descricao });
     });
-  }
-
-  const sql = "UPDATE produto SET nome = ? WHERE id = ?";
-  connection.query(sql, [nome.trim(), id], (error, result) => {
-    if (error) {
-      console.error("Erro ao atualizar produto:", error);
-      return res.status(500).json({ erro: "Erro ao atualizar o produto." });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ erro: "Item não encontrado." });
-    }
-
-    res.json({ id, nome: nome.trim() });
-  });
-});
+  },
+);
 
 app.delete("/produtos/:id", (req, res) => {
   const id = Number(req.params.id);
